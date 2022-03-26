@@ -1,0 +1,6 @@
+pandas
+pyvis
+torch
+torch-scatter
+torch-geometric
+torch-sparse
