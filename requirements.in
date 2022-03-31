@@ -4,3 +4,5 @@ torch
 torch-scatter
 torch-geometric
 torch-sparse
+scikit-learn
+nltk

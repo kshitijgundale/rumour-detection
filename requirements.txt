@@ -12,8 +12,11 @@ certifi==2021.10.8
     # via requests
 charset-normalizer==2.0.12
     # via requests
+click==8.0.4
+    # via nltk
 colorama==0.4.4
     # via
+    #   click
     #   ipython
     #   tqdm
 decorator==5.1.1
@@ -31,7 +34,9 @@ jinja2==3.1.0
     #   pyvis
     #   torch-geometric
 joblib==1.1.0
-    # via scikit-learn
+    # via
+    #   nltk
+    #   scikit-learn
 jsonpickle==2.1.0
     # via pyvis
 markupsafe==2.1.1
@@ -40,6 +45,8 @@ matplotlib-inline==0.1.3
     # via ipython
 networkx==2.7.1
     # via pyvis
+nltk==3.7
+    # via -r requirements.in
 numpy==1.22.1
     # via
     #   pandas
@@ -68,14 +75,19 @@ pytz==2021.3
     # via pandas
 pyvis==0.1.9
     # via -r requirements.in
+regex==2022.3.15
+    # via nltk
 requests==2.27.1
     # via torch-geometric
 scikit-learn==1.0.2
-    # via torch-geometric
+    # via
+    #   -r requirements.in
+    #   torch-geometric
 scipy==1.8.0
     # via
     #   scikit-learn
     #   torch-geometric
+    #   torch-sparse
 six==1.16.0
     # via python-dateutil
 stack-data==0.2.0
@@ -88,8 +100,12 @@ torch-geometric==2.0.4
     # via -r requirements.in
 torch-scatter==2.0.9
     # via -r requirements.in
+torch-sparse==0.6.13
+    # via -r requirements.in
 tqdm==4.63.1
-    # via torch-geometric
+    # via
+    #   nltk
+    #   torch-geometric
 traitlets==5.1.1
     # via
     #   ipython

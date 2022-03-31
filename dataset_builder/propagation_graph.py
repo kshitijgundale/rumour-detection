@@ -5,6 +5,7 @@ import pandas as pd
 import torch
 from pyvis.network import Network
 from torch_geometric.data import Data
+from time import process_time
 
 TWEET = "tweet"
 RETWEET = "retweet"
@@ -16,10 +17,11 @@ class Node:
     node_id: str
     node_type: str
     verified: bool
+    username: str
     parent: str = None
-    children: List[str] = [],
+    children: List[str] = field(default_factory=list)
     features: Dict[str, float] = field(default_factory=dict)
-
+    
 @dataclass
 class Cascade:
     cascade_id: str
@@ -34,6 +36,7 @@ class PropagationGraph():
         retweets,
         quotes,
         replies,
+        features,
         feature_extractors,
         deadline,
         news_utc,
@@ -44,13 +47,18 @@ class PropagationGraph():
         self.retweets = retweets
         self.quotes = quotes
         self.replies = replies
+        self.features = features
         self.feature_extractors = feature_extractors
         self.deadline = deadline
         self.news_utc = news_utc
         self.news_id = news_id
         self.metatdata = {}
-
-    def build_heirarchy(self):
+       
+        self._build_heirarchy()
+        self._build_cascades()
+        self._build_node_features()
+        
+    def _build_heirarchy(self):
         self.tweets = sorted(self.tweets, key=lambda x: twittertime_to_timestamp(x['created_at']))
         self.nodes_dict = {}
         self.child_dict = {}
@@ -63,6 +71,8 @@ class PropagationGraph():
         self.metatdata['num_replies'] = 0
 
         first_node_ts = twittertime_to_timestamp(self.tweets[0]['created_at'])
+        if not self.news_utc:
+            self.news_utc = first_node_ts
         last_node_ts = 0
         avg_retweets_per_tweet = []
         avg_replies_per_tweet = []
@@ -161,7 +171,7 @@ class PropagationGraph():
         del self.quotes
         del self.replies
 
-    def build_cascades(self):
+    def _build_cascades(self):
         self.cascades = {}
         self.node_mapping = {}
 
@@ -172,12 +182,14 @@ class PropagationGraph():
 
             while len(visited) != 0:
                 n = visited.pop()
+                node = self.nodes_dict[n]
                 cascade.nodes[n] = Node(
                     node_id=n, 
-                    node_type=self.nodes_dict[n]['node_type'], 
+                    node_type=node['node_type'], 
                     parent=self.parent_dict[n], 
-                    verified=self.nodes_dict[n]['user']['verified'],
+                    verified=node['user']['verified'],
                     children=self.child_dict[n],
+                    username=node['user']['screen_name'],
                 )
                 self.node_mapping[n] = root
 
@@ -189,18 +201,18 @@ class PropagationGraph():
         del self.child_dict
         del self.parent_dict
     
-    def build_node_features(self):
+    def _build_node_features(self):
 
         for cascade in self.cascades.values():
             for node in cascade.nodes.values():
                 for func in self.feature_extractors:
-                    feature_name, value = func(self.nodes_dict, self.cascades, node.node_id)
+                    feature_name, value = func(self.nodes_dict, self.cascades, node.node_id, self.news_utc)
                     node.features[feature_name] = value
 
         del self.nodes_dict
 
     def reach_by_hours(self, hours):
-
+        
         raise NotImplementedError()
 
     def get_pyg_data_object(self):
@@ -215,6 +227,7 @@ class PropagationGraph():
                 edges.extend([(node.node_id, child) for child in node.children])
 
         df = pd.DataFrame(data=data)
+        df = df[self.features]
         
         self.pyg_node_mapping['news'] = len(data)
         edges.extend([('news', cascade_id) for cascade_id in self.cascades])
@@ -252,7 +265,7 @@ class PropagationGraph():
                 else:
                     color = "lightgreen"
                 
-                net.add_node(n_id=node.node_id, label=" ", shape=shape, color=color, size=1)
+                net.add_node(n_id=node.node_id, label=" ", shape=shape, color=color, size=15)
 
         #News node
         net.add_node(n_id="news", label=" ", shape="circle", color="black", size=1)
@@ -263,6 +276,25 @@ class PropagationGraph():
         return net.show(f"{path}/{self.news_id}.html")
 
     def get_visjs_data(self):
-        raise NotImplementedError()
+        nodes = []
+        edges = []
+        for cascade in self.cascades.values():
+            for node in cascade.nodes.values():
+                nodes.append({
+                    "id": node.node_id,
+                    "type": node.node_type,
+                    "username": node.username,
+                    "node_url": f"https://twitter.com/i/web/status/{node.node_id}"
+                })
+                edges.extend([{"from": node.node_id, "to": child} for child in node.children])
+
+        nodes.append("news")
+        edges.extend([{"from": "news", "to": cascade} for cascade in self.cascades])
+
+        return nodes, edges
+
+    def get_node_by_id(self, id):
+        cascade = self.cascades[self.node_mapping[id]]
+        return cascade.nodes[id]
 
     

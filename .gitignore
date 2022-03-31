@@ -3,3 +3,5 @@ __pycache__/
 *.ipynb
 *.html
 raw_data/
+*.json
+*.pt
